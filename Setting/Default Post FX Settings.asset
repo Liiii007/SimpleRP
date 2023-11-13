@@ -19,4 +19,4 @@ MonoBehaviour:
     threshold: 1
     thresholdKnee: 0.365
     intensity: 1
-  toneMappingMode: 1
+  toneMappingMode: 0

@@ -25,9 +25,9 @@ float G_Schlick_GGX(float roughness, float NdotV)
     return nom / denom;
 }
 
-float G_Smith_GGX(float roughness, float NdotV, float NdotH)
+float G_Smith_GGX(float roughness, float NdotV, float NdotL)
 {
-    return G_Schlick_GGX(roughness, NdotV) * G_Schlick_GGX(roughness, NdotH);
+    return G_Schlick_GGX(roughness, NdotV) * G_Schlick_GGX(roughness, NdotL);
 }
 
 float3 F_Schlick(float3 f0, float cosTheta)
