@@ -68,6 +68,7 @@ namespace SimpleRP.Runtime.PostProcessing
             }
             else
             {
+                _buffer.SetGlobalFloat(_bloomIntensityId, 0f);
                 DoToneMapping(sourceId);
             }
 
@@ -128,7 +129,8 @@ namespace SimpleRP.Runtime.PostProcessing
             {
                 int cw = width >> i;
                 int ch = height >> i;
-                _buffer.GetTemporaryRT(_bloomMipUp[i], Mathf.Max(1, cw), Mathf.Max(1, ch), 0, FilterMode.Bilinear, format);
+                _buffer.GetTemporaryRT(_bloomMipUp[i], Mathf.Max(1, cw), Mathf.Max(1, ch), 0, FilterMode.Bilinear,
+                    format);
                 _buffer.GetTemporaryRT(_bloomMipDown[i], Mathf.Max(1, cw), Mathf.Max(1, ch), 0, FilterMode.Bilinear,
                     format);
             }

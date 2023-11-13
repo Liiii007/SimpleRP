@@ -10,6 +10,7 @@ namespace SimpleRP.Runtime
 
         private static readonly ShaderTagId FirstPassShaderTagId = new ShaderTagId("SRPDefaultUnlit");
         private static readonly ShaderTagId SecondPassShaderTagId = new ShaderTagId("SRPPass2");
+        private static readonly ShaderTagId WorldSpaceCameraPos = new ShaderTagId("_WorldSpaceCameraPos");
 
         private Camera _camera;
         private ScriptableRenderContext _context;
