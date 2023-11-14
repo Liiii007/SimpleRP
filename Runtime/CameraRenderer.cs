@@ -55,12 +55,12 @@ namespace SimpleRP.Runtime
             {
                 if (_postFXStack.IsActive)
                 {
-                    BlitToCameraDeferred(new RenderTargetIdentifier(_frameBufferId));
+                    BlitToCameraDeferred(_frameBufferId);
                     _postFXStack.Render(_frameBufferId);
                 }
                 else
                 {
-                    BlitToCameraDeferred(new(BuiltinRenderTextureType.CurrentActive));
+                    BlitToCameraDeferred(BuiltinRenderTextureType.CurrentActive);
                 }
             }
             else
@@ -71,19 +71,17 @@ namespace SimpleRP.Runtime
                 }
             }
 
-
             DrawGizmosAfterPostFX();
-
             Cleanup();
-
             Submit();
         }
 
+        private CameraClearFlags flags;
 
         private void Setup()
         {
             _context.SetupCameraProperties(_camera);
-            CameraClearFlags flags = _camera.clearFlags;
+            flags = _camera.clearFlags;
 
             switch (SimpleRenderPipelineParameter.PipelineType)
             {
@@ -108,6 +106,7 @@ namespace SimpleRP.Runtime
 
         private void SetupDeferred(CameraClearFlags flags)
         {
+            //Fill GBuffer's RT ID
             if (deferredRTIDs == null)
             {
                 deferredRTIDs = new int[2];
@@ -120,6 +119,20 @@ namespace SimpleRP.Runtime
                 deferredRTs[0] = new RenderTargetIdentifier(deferredRTIDs[0]);
                 deferredRTs[1] = new RenderTargetIdentifier(deferredRTIDs[1]);
                 deferredDepthRT = new RenderTargetIdentifier(deferredDepthRTID);
+            }
+
+            if (_postFXStack.IsActive)
+            {
+                //To prevent random result
+                if (flags > CameraClearFlags.Color)
+                {
+                    //Left skybox(1) or color(2) flag here
+                    flags = CameraClearFlags.Color;
+                }
+
+                //Open post processing RT here
+                _buffer.GetTemporaryRT(_frameBufferId, ScreenRTSize.x, ScreenRTSize.y, 32,
+                    FilterMode.Bilinear, _useHDR ? RenderTextureFormat.DefaultHDR : RenderTextureFormat.Default);
             }
 
             //0:Albedo.xyz + metallic
@@ -209,6 +222,7 @@ namespace SimpleRP.Runtime
 
         private void BlitToCameraDeferred(RenderTargetIdentifier target)
         {
+            _buffer.BeginSample("Blit Deferred Result");
             //Pass inverse VP matrix to shader
             Matrix4x4 proj = GL.GetGPUProjectionMatrix(_camera.projectionMatrix, false);
             Matrix4x4 vp = proj * _camera.worldToCameraMatrix;
@@ -218,11 +232,17 @@ namespace SimpleRP.Runtime
             _buffer.SetGlobalTexture(deferredRTIDs[1], deferredRTs[1]);
             _buffer.SetGlobalTexture(deferredDepthRTID, deferredDepthRT);
             _buffer.SetRenderTarget(target);
+            _buffer.ClearRenderTarget(flags <= CameraClearFlags.Depth, flags <= CameraClearFlags.Color,
+                flags == CameraClearFlags.Color ? _camera.backgroundColor.linear : Color.clear);
             _buffer.DrawProcedural(Matrix4x4.identity, DeferredPostProcessMaterial, 0, MeshTopology.Triangles, 3);
 
             _buffer.ReleaseTemporaryRT(deferredRTIDs[0]);
             _buffer.ReleaseTemporaryRT(deferredRTIDs[1]);
             _buffer.ReleaseTemporaryRT(deferredDepthRTID);
+            _buffer.EndSample("Blit Deferred Result");
+            
+            _context.ExecuteCommandBuffer(_buffer);
+            _buffer.Clear();
         }
 
         private Material _material;
