@@ -37,7 +37,7 @@ Varyings LitPassVertex(Attributes input)
     return output;
 }
 
-float4 LitPassFragment(Varyings input) : SV_TARGET
+half4 LitPassFragment(Varyings input) : SV_TARGET
 {
     //Fill fragment's surface data
     Surface surface;
@@ -50,7 +50,7 @@ float4 LitPassFragment(Varyings input) : SV_TARGET
     surface.ao = _AO;
 
     //Calculate lighting
-    return float4(GetLighting(surface), 1.0);
+    return half4(GetLighting(surface), 1.0);
 }
 
 #endif

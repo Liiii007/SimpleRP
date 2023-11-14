@@ -18,7 +18,6 @@
             ZTest LEqual
 
             HLSLPROGRAM
-            #pragma enable_d3d11_debug_symbols
             #pragma vertex LitPassVertex
             #pragma fragment LitPassFragment
             #include "LitPass.hlsl"
