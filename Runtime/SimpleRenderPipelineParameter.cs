@@ -7,5 +7,6 @@ namespace SimpleRP.Runtime
         public static PostFXSettings PostFXSettings;
         public static bool AllowHDR;
         public static float RenderScale;
+        public static PipelineType PipelineType;
     }
 }

@@ -58,6 +58,7 @@ namespace SimpleRP.Runtime.PostProcessing
 
         public bool IsActive => _settings != null;
 
+        
         public void Render(int sourceId)
         {
             if (DoBloom(sourceId))
