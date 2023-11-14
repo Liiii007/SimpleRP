@@ -14,5 +14,5 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   postFXSettings: {fileID: 11400000, guid: 7f2614b38b11803498bc6ddf805ad047, type: 2}
   allowHDR: 1
-  renderScale: 0.875
+  renderScale: 1
   pipelineType: 1

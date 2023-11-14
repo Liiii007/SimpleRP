@@ -52,17 +52,20 @@ half4 DeferredPassFragment(Varyings input) : SV_TARGET
 {
     half4 gbuffer0 = SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_point_clamp, input.screenUV, 0);
     half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_point_clamp, input.screenUV, 0);
-    half4 gbufferdepth = SAMPLE_TEXTURE2D_LOD(_GBufferDepth, sampler_point_clamp, input.screenUV, 0);
-    float d = _GBufferDepth.SampleLevel(sampler_point_clamp, input.screenUV, 0).x;
     float depth = SAMPLE_TEXTURE2D(_GBufferDepth, sampler_point_clamp, input.screenUV).r;
     float4 worldPos = mul(_InverseVPMatrix, float4(input.screenUV * 2.0 - 1.0, depth, 1.0));
     worldPos /= worldPos.w;
+
     Surface surface;
+    surface.position = worldPos;
+    surface.viewDir = normalize(_WorldSpaceCameraPos - worldPos);
     surface.albedo = gbuffer0.rgb;
     surface.metallic = gbuffer0.a;
-    surface.normal = gbuffer1.rgb;
+    surface.normal = normalize(gbuffer1.rgb);
     surface.roughness = gbuffer1.a;
-    return half4(d,d,d, 1);
+    surface.ao = 1;
+
+    return half4(GetLighting(surface), 1);
 }
 
 #endif

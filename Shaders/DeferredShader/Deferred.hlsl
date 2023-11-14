@@ -37,7 +37,7 @@ Attributes DeferredPassVertex(Varying input)
 
 void DeferredPassFragment(Attributes input,
                           out half4 outGBuffer0 : SV_Target0,
-                          out half4 outGBuffer1 : SV_Target1)
+                          out float4 outGBuffer1 : SV_Target1)
 {
     outGBuffer0 = half4(_Albedo.xyz, _Metallic);
     outGBuffer1 = half4(input.normalWS.xyz, _Roughness);

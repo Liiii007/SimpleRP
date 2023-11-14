@@ -134,9 +134,12 @@ namespace SimpleRP.Runtime
                 RenderTextureFormat.ARGBHalf);
 
             _buffer.GetTemporaryRT(deferredDepthRTID, ScreenRTSize.x, ScreenRTSize.y, 0, FilterMode.Point,
-                RenderTextureFormat.RFloat);
+                RenderTextureFormat.Depth);
 
-            _buffer.SetRenderTarget(deferredRTs, deferredDepthRTID);
+            _buffer.SetRenderTarget(deferredRTs, deferredDepthRT);
+
+            _buffer.ClearRenderTarget(flags <= CameraClearFlags.Depth, flags <= CameraClearFlags.Color,
+                flags == CameraClearFlags.Color ? _camera.backgroundColor.linear : Color.clear);
         }
 
         private void SetupForward(CameraClearFlags flags)
@@ -210,7 +213,7 @@ namespace SimpleRP.Runtime
             Matrix4x4 proj = GL.GetGPUProjectionMatrix(_camera.projectionMatrix, false);
             Matrix4x4 vp = proj * _camera.worldToCameraMatrix;
             _buffer.SetGlobalMatrix(InverseVPMatrix, vp.inverse);
-            
+
             _buffer.SetGlobalTexture(deferredRTIDs[0], deferredRTs[0]);
             _buffer.SetGlobalTexture(deferredRTIDs[1], deferredRTs[1]);
             _buffer.SetGlobalTexture(deferredDepthRTID, deferredDepthRT);
