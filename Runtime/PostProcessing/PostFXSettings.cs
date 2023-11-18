@@ -17,11 +17,21 @@ namespace SimpleRP.Runtime.PostProcessing
             [Min(0f)] public float intensity;
         }
 
+        [Serializable]
+        public struct FogSettings
+        {
+            [Range(0f, 1f)] public float Density;
+            [Range(0f, 1f)] public float Strength;
+            public Color Color;
+        }
+
         [SerializeField] private Shader shader = default;
         [NonSerialized] private Material _material;
 
         [SerializeField] private BloomSettings _bloomSettings = default;
+        [SerializeField] private FogSettings _fogSettings = default;
         public BloomSettings Bloom => _bloomSettings;
+        public FogSettings Fog => _fogSettings;
         public ToneMappingMode toneMappingMode;
 
         public Material Material
@@ -45,7 +55,8 @@ namespace SimpleRP.Runtime.PostProcessing
             BloomPrefilterPassFragment,
             BloomVertical,
             Copy,
-            ToneMappingACES
+            ToneMappingACES,
+            DepthFog
         }
 
         public enum ToneMappingMode

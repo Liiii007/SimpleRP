@@ -6,6 +6,7 @@
 #include "../../ShaderLibrary/Lighting.hlsl"
 
 float4 _ProjectionParams;
+float4 _ZBufferParams;
 float4x4 _InverseVPMatrix;
 
 TEXTURE2D(_GBuffer0);
@@ -48,11 +49,16 @@ Varyings DeferredPassVertex(uint vertexID : SV_VertexID)
     return output;
 }
 
+
 half4 DeferredPassFragment(Varyings input) : SV_TARGET
 {
     half4 gbuffer0 = SAMPLE_TEXTURE2D_LOD(_GBuffer0, sampler_point_clamp, input.screenUV, 0);
     half4 gbuffer1 = SAMPLE_TEXTURE2D_LOD(_GBuffer1, sampler_point_clamp, input.screenUV, 0);
     float depth = SAMPLE_TEXTURE2D(_GBufferDepth, sampler_point_clamp, input.screenUV).r;
+    depth = Linear01Depth(depth, _ZBufferParams);
+
+    // return float4(depth, depth, depth, 1);
+
     float4 worldPos = mul(_InverseVPMatrix, float4(input.screenUV * 2.0 - 1.0, depth, 1.0));
     worldPos /= worldPos.w;
 

@@ -19,4 +19,8 @@ MonoBehaviour:
     threshold: 1
     thresholdKnee: 0.365
     intensity: 1
+  _fogSettings:
+    Density: 0.772
+    Strength: 0.078
+    Color: {r: 0.8018868, g: 0.8018868, b: 0.8018868, a: 1}
   toneMappingMode: 1

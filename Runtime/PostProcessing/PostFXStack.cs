@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -58,26 +59,36 @@ namespace SimpleRP.Runtime.PostProcessing
 
         public bool IsActive => _settings != null;
 
-        
+
         public void Render(int sourceId)
         {
+            List<int> releaseRT = new List<int>();
+
+            if (DoFog(sourceId))
+            {
+                releaseRT.Add(_fogResultRT);
+                sourceId = _fogResultRT;
+            }
+
+            _buffer.SetGlobalFloat(_bloomIntensityId, 0f);
             if (DoBloom(sourceId))
             {
                 _buffer.SetGlobalTexture(_fxSourceId2, _bloomResultRT);
-                DoToneMapping(sourceId);
-                _buffer.ReleaseTemporaryRT(_bloomResultRT);
+                releaseRT.Add(_bloomResultRT);
             }
-            else
+
+            DoToneMapping(sourceId);
+
+            foreach (var rt in releaseRT)
             {
-                _buffer.SetGlobalFloat(_bloomIntensityId, 0f);
-                DoToneMapping(sourceId);
+                _buffer.ReleaseTemporaryRT(rt);
             }
 
             _context.ExecuteCommandBuffer(_buffer);
             _buffer.Clear();
         }
 
-        private void Draw(RenderTargetIdentifier from, RenderTargetIdentifier to, PostFXSettings.FXPass pass)
+        private void Blit(RenderTargetIdentifier from, RenderTargetIdentifier to, PostFXSettings.FXPass pass)
         {
             //Set origin texture
             _buffer.SetGlobalTexture(_fxSourceId, from);
@@ -110,6 +121,7 @@ namespace SimpleRP.Runtime.PostProcessing
                 height < bloomSettings.downscaleLimit * 2 ||
                 width < bloomSettings.downscaleLimit * 2)
             {
+                _buffer.SetGlobalFloat(_bloomIntensityId, 0f);
                 return false;
             }
 
@@ -136,14 +148,14 @@ namespace SimpleRP.Runtime.PostProcessing
                     format);
             }
 
-            Draw(sourceId, _bloomMipDown[0], PostFXSettings.FXPass.BloomPrefilterPassFragment);
+            Blit(sourceId, _bloomMipDown[0], PostFXSettings.FXPass.BloomPrefilterPassFragment);
 
             //Downsample
             var lastDown = _bloomMipDown[0];
             for (int i = 1; i < bloomSettings.maxIterations; i++)
             {
-                Draw(lastDown, _bloomMipUp[i], PostFXSettings.FXPass.BloomHorizontal);
-                Draw(_bloomMipUp[i], _bloomMipDown[i], PostFXSettings.FXPass.BloomVertical);
+                Blit(lastDown, _bloomMipUp[i], PostFXSettings.FXPass.BloomHorizontal);
+                Blit(_bloomMipUp[i], _bloomMipDown[i], PostFXSettings.FXPass.BloomVertical);
 
                 lastDown = _bloomMipDown[i];
             }
@@ -156,7 +168,7 @@ namespace SimpleRP.Runtime.PostProcessing
                 var dst = _bloomMipUp[i];
 
                 _buffer.SetGlobalTexture(_fxSourceId2, lowMip);
-                Draw(highMip, dst, PostFXSettings.FXPass.BloomCombine);
+                Blit(highMip, dst, PostFXSettings.FXPass.BloomCombine);
 
                 _bloomResultRT = dst;
             }
@@ -170,64 +182,6 @@ namespace SimpleRP.Runtime.PostProcessing
                     _buffer.ReleaseTemporaryRT(_bloomMipUp[i]);
                 }
             }
-
-            return true;
-
-            //
-            // _buffer.GetTemporaryRT(_bloomPrefilterRT, width, height, 0, FilterMode.Bilinear, format);
-            //
-            // int fromRT = _bloomPrefilterRT;
-            // int toRT = _bloomPyramidId + 1;
-            //
-            // int i;
-            // //Down sample
-            // for (i = 0; i < bloomSettings.maxIterations; i++)
-            // {
-            //     if (height < bloomSettings.downscaleLimit || width < bloomSettings.downscaleLimit)
-            //     {
-            //         break;
-            //     }
-            //
-            //     int midId = toRT - 1;
-            //     _buffer.GetTemporaryRT(midId, width, height, 0, FilterMode.Bilinear, format);
-            //     _buffer.GetTemporaryRT(toRT, width, height, 0, FilterMode.Bilinear, format);
-            //     Draw(fromRT, midId, PostFXSettings.FXPass.BloomHorizontal);
-            //     Draw(midId, toRT, PostFXSettings.FXPass.BloomVertical);
-            //     fromRT = toRT;
-            //     toRT += 2;
-            //     width /= 2;
-            //     height /= 2;
-            // }
-            //
-            // //Set intensity when upsampleing when combine
-            // _buffer.SetGlobalFloat(_bloomIntensityId, bloomSettings.intensity);
-            // if (i > 1)
-            // {
-            //     _buffer.ReleaseTemporaryRT(fromRT - 1); //Release mid RT(fromId points to last toId)
-            //     toRT -= 5;
-            //
-            //     //Up sample 
-            //     for (i -= 1; i > 0; i--)
-            //     {
-            //         _buffer.SetGlobalTexture(_fxSourceId2, toRT + 1);
-            //         Draw(fromRT, toRT, PostFXSettings.FXPass.BloomCombine);
-            //         _buffer.ReleaseTemporaryRT(fromRT);
-            //         _buffer.ReleaseTemporaryRT(toRT - 1);
-            //         fromRT = toRT;
-            //         toRT -= 2;
-            //     }
-            // }
-            // else
-            // {
-            //     _buffer.ReleaseTemporaryRT(_bloomPyramidId);
-            // }
-            //
-            // _buffer.SetGlobalTexture(_fxSourceId2, sourceId);
-            // _buffer.GetTemporaryRT(_bloomResultRT, _camera.pixelWidth, _camera.pixelHeight, 0, FilterMode.Bilinear, format);
-            // Draw(fromRT, _bloomResultRT, PostFXSettings.FXPass.BloomCombine);
-            // _buffer.ReleaseTemporaryRT(fromRT);
-            // _buffer.ReleaseTemporaryRT(_bloomPrefilterRT);
-            // _buffer.EndSample("Bloom");
 
             return true;
         }
@@ -251,7 +205,32 @@ namespace SimpleRP.Runtime.PostProcessing
                     throw new ArgumentOutOfRangeException();
             }
 
-            Draw(sourceId, BuiltinRenderTextureType.CameraTarget, pass);
+            Blit(sourceId, BuiltinRenderTextureType.CameraTarget, pass);
+        }
+
+        #endregion
+
+        #region DoFog
+
+        private int _fogResultRT = Shader.PropertyToID("FogResult");
+        private int _fogDensityId = Shader.PropertyToID("_FogDensity");
+        private int _fogStrengthId = Shader.PropertyToID("_FogStrength");
+        private int _fogColorId = Shader.PropertyToID("_FogColor");
+
+        private bool DoFog(int sourceId)
+        {
+            if (_settings.Fog.Density <= 0f)
+            {
+                return false;
+            }
+
+            var format = _useHDR ? RenderTextureFormat.DefaultHDR : RenderTextureFormat.Default;
+            _buffer.SetGlobalFloat(_fogDensityId, _settings.Fog.Density);
+            _buffer.SetGlobalFloat(_fogStrengthId, _settings.Fog.Strength);
+            _buffer.SetGlobalColor(_fogColorId, _settings.Fog.Color);
+            _buffer.GetTemporaryRT(_fogResultRT, _screenRTSize.x, _screenRTSize.y, 0, FilterMode.Bilinear, format);
+            Blit(sourceId, _fogResultRT, PostFXSettings.FXPass.DepthFog);
+            return true;
         }
 
         #endregion

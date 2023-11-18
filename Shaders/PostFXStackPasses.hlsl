@@ -5,6 +5,8 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
 float4 _ProjectionParams;
+float4 _ZBufferParams;
+float4x4 _InverseVPMatrix;
 float4 _PostFXSource_TexelSize;
 float4 _Params; // x: scatter, y: clamp, z: threshold (linear), w: threshold knee
 
@@ -16,7 +18,9 @@ float _BloomIntensity;
 
 TEXTURE2D(_PostFXSource);
 TEXTURE2D(_PostFXSource2);
+TEXTURE2D(_CameraDepthBuffer);
 SAMPLER(sampler_linear_clamp);
+SAMPLER(sampler_point_clamp);
 
 struct Varyings
 {
@@ -36,6 +40,14 @@ float4 GetSourceBicubic(float2 screenUV)
         _PostFXSource_TexelSize.zwxy, 1.0, 0.0
     );
 }
+
+float GetLinearDepth01(float2 screenUV)
+{
+    //TODO:GetDepth
+    float depth = SAMPLE_TEXTURE2D(_CameraDepthBuffer, sampler_point_clamp, screenUV).r;
+    depth = Linear01Depth(depth, _ZBufferParams);
+    return depth;
+};
 
 float4 GetSource2(float2 screenUV)
 {
@@ -153,6 +165,23 @@ half4 ToneMappingACESPassFragment(Varyings input) : SV_TARGET
     color.rgb = min(color.rgb, 60.0);
     color.rgb = AcesTonemap(unity_to_ACES(color.rgb));
     return color;
+}
+
+float _FogDensity;
+float _FogStrength;
+half4 _FogColor;
+
+float4 FogPassFragment(Varyings input) : SV_TARGET
+{
+    float depth = GetLinearDepth01(input.screenUV);
+    float4 worldPos = mul(_InverseVPMatrix, float4(input.screenUV * 2.0 - 1.0, depth, 1.0));
+    worldPos /= worldPos.w;
+    float z = worldPos.z - _WorldSpaceCameraPos.z;
+    float factor = exp(-(1 -_FogDensity) * z);
+    float4 color = GetSource(input.screenUV);
+    float4 result = lerp(color, _FogColor, factor * _FogStrength);
+    result.a = color.a;
+    return result;
 }
 
 #endif

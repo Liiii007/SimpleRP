@@ -21,6 +21,7 @@ namespace SimpleRP.Runtime
 
         private PostProcessing.PostFXStack _postFXStack = new PostProcessing.PostFXStack();
         private static int _frameBufferId = Shader.PropertyToID("_CameraFrameBuffer");
+        private static int _depthBufferId = Shader.PropertyToID("_CameraDepthBuffer");
         private bool _useHDR;
         private bool _useRenderScale;
         private static bool AllowHDR => SimpleRenderPipelineParameter.AllowHDR;
@@ -95,6 +96,8 @@ namespace SimpleRP.Runtime
                     throw new ArgumentOutOfRangeException();
             }
 
+            SetInverseVPMatrix();
+
             // _buffer.BeginSample(SampleName);
             ExecuteBuffer();
         }
@@ -150,6 +153,7 @@ namespace SimpleRP.Runtime
                 RenderTextureFormat.Depth);
 
             _buffer.SetRenderTarget(deferredRTs, deferredDepthRT);
+            _buffer.SetGlobalTexture(_depthBufferId, deferredDepthRT);
 
             _buffer.ClearRenderTarget(flags <= CameraClearFlags.Depth, flags <= CameraClearFlags.Color,
                 flags == CameraClearFlags.Color ? _camera.backgroundColor.linear : Color.clear);
@@ -171,12 +175,19 @@ namespace SimpleRP.Runtime
                     _frameBufferId,
                     ScreenRTSize.x,
                     ScreenRTSize.y,
-                    32,
+                    0,
                     FilterMode.Bilinear,
                     _useHDR ? RenderTextureFormat.DefaultHDR : RenderTextureFormat.Default);
 
-                _buffer.SetRenderTarget(_frameBufferId,
-                    RenderBufferLoadAction.DontCare, RenderBufferStoreAction.Store);
+                _buffer.GetTemporaryRT(
+                    _depthBufferId,
+                    ScreenRTSize.x,
+                    ScreenRTSize.y,
+                    0,
+                    FilterMode.Point,
+                    RenderTextureFormat.Depth);
+
+                _buffer.SetRenderTarget(color: _frameBufferId, depth: _depthBufferId);
             }
 
             _buffer.ClearRenderTarget(flags <= CameraClearFlags.Depth, flags <= CameraClearFlags.Color,
@@ -223,10 +234,6 @@ namespace SimpleRP.Runtime
         private void BlitToCameraDeferred(RenderTargetIdentifier target)
         {
             _buffer.BeginSample("Blit Deferred Result");
-            //Pass inverse VP matrix to shader
-            Matrix4x4 proj = GL.GetGPUProjectionMatrix(_camera.projectionMatrix, false);
-            Matrix4x4 vp = proj * _camera.worldToCameraMatrix;
-            _buffer.SetGlobalMatrix(InverseVPMatrix, vp.inverse);
 
             _buffer.SetGlobalTexture(deferredRTIDs[0], deferredRTs[0]);
             _buffer.SetGlobalTexture(deferredRTIDs[1], deferredRTs[1]);
@@ -240,7 +247,7 @@ namespace SimpleRP.Runtime
             _buffer.ReleaseTemporaryRT(deferredRTIDs[1]);
             _buffer.ReleaseTemporaryRT(deferredDepthRTID);
             _buffer.EndSample("Blit Deferred Result");
-            
+
             _context.ExecuteCommandBuffer(_buffer);
             _buffer.Clear();
         }
@@ -293,6 +300,14 @@ namespace SimpleRP.Runtime
             {
                 _buffer.ReleaseTemporaryRT(_frameBufferId);
             }
+        }
+
+        private void SetInverseVPMatrix()
+        {
+            //Pass inverse VP matrix to shader
+            Matrix4x4 proj = GL.GetGPUProjectionMatrix(_camera.projectionMatrix, false);
+            Matrix4x4 vp = proj * _camera.worldToCameraMatrix;
+            _buffer.SetGlobalMatrix(InverseVPMatrix, vp.inverse);
         }
     }
 }
